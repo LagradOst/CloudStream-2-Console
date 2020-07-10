@@ -14,6 +14,8 @@ using System.Threading;
 //using Android.Content;
 using System.Threading.Tasks;
 using static CloudStream2Console.CloudStreamCore;
+using HtmlAgilityPack.CssSelectors;
+using HtmlAgilityPack.CssSelectors.NetCore;
 
 
 namespace CloudStream2Console
@@ -792,6 +794,7 @@ namespace CloudStream2Console
             public KissanimefreeData kissanimefreeData;
             public AnimeSimpleData animeSimpleData;
             public VidStreamingData vidStreamingData;
+            public AnimeVibeData animeVibeData;
         }
 
         [Serializable]
@@ -1362,7 +1365,7 @@ namespace CloudStream2Console
 
         public CloudStreamCore() // INIT
         {
-            animeProviders = new IAnimeProvider[] { new GogoAnimeProvider(this), new KickassAnimeProvider(this), new DubbedAnimeProvider(this), new AnimeFlixProvider(this), new DubbedAnimeNetProvider(this), new AnimekisaProvider(this), new DreamAnimeProvider(this), new TheMovieAnimeProvider(this), new KissFreeAnimeProvider(this), new AnimeSimpleProvider(this), new VidstreamingAnimeProvider(this) };
+            animeProviders = new IAnimeProvider[] { new GogoAnimeProvider(this), new KickassAnimeProvider(this), new DubbedAnimeProvider(this), new AnimeFlixProvider(this), new DubbedAnimeNetProvider(this), new AnimekisaProvider(this), new DreamAnimeProvider(this), new TheMovieAnimeProvider(this), new KissFreeAnimeProvider(this), new AnimeSimpleProvider(this), new VidstreamingAnimeProvider(this), new AnimeVibeProvider(this) };
             movieProviders = new IMovieProvider[] { new DirectVidsrcProvider(this), new WatchTVProvider(this), new FMoviesProvider(this), new LiveMovies123Provider(this), new TheMovies123Provider(this), new YesMoviesProvider(this), new WatchSeriesProvider(this), new GomoStreamProvider(this), new Movies123Provider(this), new DubbedAnimeMovieProvider(this), new TheMovieMovieProvider(this), new KickassMovieProvider(this) };
         }
 
@@ -1459,6 +1462,156 @@ namespace CloudStream2Console
 
 
         public static object _lock = new object();
+
+        [Serializable]
+        struct AnimeVibeData
+        {
+            public bool subExists;
+            public bool dubExists;
+            public int dubbedEps;
+            public int subbedEps;
+            public string dubLink;
+            public string subLink;
+        }
+        class AnimeVibeProvider : BaseAnimeProvider
+        {
+            public override string Name => "Animevibe";
+            public override void FishMainLink(string year, TempThread tempThred, MALData malData)
+            {
+                var data = Search(malData.engName);
+
+                for (int i = 0; i < activeMovie.title.MALData.seasonData.Count; i++)
+                {
+                    for (int q = 0; q < activeMovie.title.MALData.seasonData[i].seasons.Count; q++)
+                    {
+                        MALSeason ms;
+                        lock (_lock)
+                        {
+                            ms = activeMovie.title.MALData.seasonData[i].seasons[q];
+                        }
+
+                        CloudStreamCore.AnimeVibeData mainData = new CloudStreamCore.AnimeVibeData();
+                        foreach (var subData in data)
+                        {
+                            if (subData.title.Contains(ms.japName))
+                            {
+                                bool isDub = subData.isDub;
+                                if (isDub)
+                                {
+                                    mainData.dubExists = true;
+                                    mainData.dubbedEps = subData.maxEp;
+                                    mainData.dubLink = subData.href;
+                                }
+                                else
+                                {
+                                    mainData.subExists = true;
+                                    mainData.subbedEps = subData.maxEp;
+                                    mainData.subLink = subData.href;
+                                }
+                            }
+                        }
+                        
+                        lock (_lock)
+                        {
+                            ms = activeMovie.title.MALData.seasonData[i].seasons[q];
+                            ms.animeVibeData = mainData;
+                            activeMovie.title.MALData.seasonData[i].seasons[q] = ms;
+                        }
+                        
+                    }
+                }
+            }
+
+            public override void GetHasDubSub(MALSeason data, out bool dub, out bool sub)
+            {
+                dub = data.animeVibeData.dubExists;
+                sub = data.animeVibeData.subExists;
+            }
+
+            public override int GetLinkCount(int currentSeason, bool isDub, TempThread? tempThred)
+            {
+                int count = 0;
+                try {
+                    for (int q = 0; q < activeMovie.title.MALData.seasonData[currentSeason].seasons.Count; q++) {
+                        var ms = activeMovie.title.MALData.seasonData[currentSeason].seasons[q].animeVibeData;
+                        if ((ms.dubExists && isDub) || (ms.subExists && !isDub)) {
+                            count += (isDub ? ms.dubbedEps : ms.subbedEps);
+                        }
+                    }
+                }
+                catch (Exception) {
+                }
+                return count;
+            }
+
+            public override void LoadLinksTSync(int episode, int season, int normalEpisode, bool isDub, TempThread tempThred)
+            {
+                int currentep = 0;
+                for (int q = 0; q < activeMovie.title.MALData.seasonData[currentSeason].seasons.Count; q++)
+                {
+                    var ms = activeMovie.title.MALData.seasonData[currentSeason].seasons[q].animeVibeData;
+                    int subEp = episode - currentep;
+                    currentep += isDub ? ms.dubbedEps : ms.subbedEps;
+                    if (currentep > episode)
+                    {
+                        AddLink(isDub ? ms.dubLink : ms.subLink, subEp, normalEpisode,tempThred)
+                    }
+                }
+            }
+
+            [Serializable]
+            public struct AnimeVibeData
+            {
+                public string href;
+                public string title;
+                public bool isDub;
+                public int maxEp;
+            }
+
+            private List<AnimeVibeData> Search(string search)
+            {
+                string searchResults = DownloadString($"https://animevibe.tv/?s={search}");
+                //print(search_results);
+                var doc = new HtmlAgilityPack.HtmlDocument();
+                doc.LoadHtml(searchResults);
+                var data = doc.QuerySelectorAll("div.blogShort");
+                var list = new List<AnimeVibeData>();
+                for (int i = 0; i < data.Count; i++)
+                {
+                    var realName = data[i].QuerySelectorAll("div.search-ex > h6");
+                    var link = data[i].QuerySelectorAll("a");
+
+                    bool isDub = (link[0].InnerText.Contains("(Dub)"));
+                    string href = (link[0].GetAttributeValue("href", ""));
+                    string title = (realName[0].InnerText);
+                    int maxEp = (int.Parse(FindHTML(realName[3].InnerText, ":", "Episode(s)")));
+                    list.Add(new AnimeVibeData()
+                    {
+                        isDub = isDub,
+                        href = href,
+                        title = title,
+                        maxEp = maxEp
+                    });
+                }
+                return list;
+            }
+
+            public void AddLink(string href, int episode, int normalEpisode, TempThread tempThread)
+            {
+                string url = href + episode;
+                string page = DownloadString(url);
+                string iframe = FindHTML(page, "<iframe src=\"", "\"");
+                if (iframe != "")
+                {
+                    string d = DownloadString("https://animevibe.tv" + iframe);
+                    AddEpisodesFromMirrors(tempThread,d,normalEpisode,"HELLO","HELLO");
+                }
+            }
+
+            public AnimeVibeProvider(CloudStreamCore _core) : base(_core)
+            {
+            }
+        }
 
         class GogoAnimeProvider : BaseAnimeProvider
         {
