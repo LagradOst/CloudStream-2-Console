@@ -199,7 +199,7 @@ namespace CloudStream2Console
                 currentEpisodes = e;
 
                 // DUB SUB LOGIC
-                if (currentMovie.title.movieType == MovieType.Anime) { 
+                if (currentMovie.title.movieType == MovieType.Anime) {
                     core.GetSubDub(currentSeason, out bool subExists, out bool dubExists);
 
                     isDub = dubExists;
@@ -227,7 +227,7 @@ namespace CloudStream2Console
 
             while (true) {
                 var input = Console.ReadKey();
-                char f = input.KeyChar; 
+                char f = input.KeyChar;
 
                 int epSelectfloor = -2;
                 if (currentView == 1) {
@@ -1464,7 +1464,7 @@ namespace CloudStream2Console
         public static object _lock = new object();
 
         [Serializable]
-        struct AnimeVibeData
+        public struct AnimeVibeData
         {
             public bool subExists;
             public bool dubExists;
@@ -1480,44 +1480,36 @@ namespace CloudStream2Console
             {
                 var data = Search(malData.engName);
 
-                for (int i = 0; i < activeMovie.title.MALData.seasonData.Count; i++)
-                {
-                    for (int q = 0; q < activeMovie.title.MALData.seasonData[i].seasons.Count; q++)
-                    {
+                for (int i = 0; i < activeMovie.title.MALData.seasonData.Count; i++) {
+                    for (int q = 0; q < activeMovie.title.MALData.seasonData[i].seasons.Count; q++) {
                         MALSeason ms;
-                        lock (_lock)
-                        {
+                        lock (_lock) {
                             ms = activeMovie.title.MALData.seasonData[i].seasons[q];
                         }
 
                         CloudStreamCore.AnimeVibeData mainData = new CloudStreamCore.AnimeVibeData();
-                        foreach (var subData in data)
-                        {
-                            if (subData.title.Contains(ms.japName))
-                            {
+                        foreach (var subData in data) {
+                            if (subData.title.Contains(ms.japName)) {
                                 bool isDub = subData.isDub;
-                                if (isDub)
-                                {
+                                if (isDub) {
                                     mainData.dubExists = true;
                                     mainData.dubbedEps = subData.maxEp;
                                     mainData.dubLink = subData.href;
                                 }
-                                else
-                                {
+                                else {
                                     mainData.subExists = true;
                                     mainData.subbedEps = subData.maxEp;
                                     mainData.subLink = subData.href;
                                 }
                             }
                         }
-                        
-                        lock (_lock)
-                        {
+
+                        lock (_lock) {
                             ms = activeMovie.title.MALData.seasonData[i].seasons[q];
                             ms.animeVibeData = mainData;
                             activeMovie.title.MALData.seasonData[i].seasons[q] = ms;
                         }
-                        
+
                     }
                 }
             }
@@ -1547,14 +1539,12 @@ namespace CloudStream2Console
             public override void LoadLinksTSync(int episode, int season, int normalEpisode, bool isDub, TempThread tempThred)
             {
                 int currentep = 0;
-                for (int q = 0; q < activeMovie.title.MALData.seasonData[currentSeason].seasons.Count; q++)
-                {
-                    var ms = activeMovie.title.MALData.seasonData[currentSeason].seasons[q].animeVibeData;
+                for (int q = 0; q < activeMovie.title.MALData.seasonData[season].seasons.Count; q++) {
+                    var ms = activeMovie.title.MALData.seasonData[season].seasons[q].animeVibeData;
                     int subEp = episode - currentep;
                     currentep += isDub ? ms.dubbedEps : ms.subbedEps;
-                    if (currentep > episode)
-                    {
-                        AddLink(isDub ? ms.dubLink : ms.subLink, subEp, normalEpisode,tempThred)
+                    if (currentep > episode) {
+                        AddLink(isDub ? ms.dubLink : ms.subLink, subEp, normalEpisode, tempThred);
                     }
                 }
             }
@@ -1576,8 +1566,7 @@ namespace CloudStream2Console
                 doc.LoadHtml(searchResults);
                 var data = doc.QuerySelectorAll("div.blogShort");
                 var list = new List<AnimeVibeData>();
-                for (int i = 0; i < data.Count; i++)
-                {
+                for (int i = 0; i < data.Count; i++) {
                     var realName = data[i].QuerySelectorAll("div.search-ex > h6");
                     var link = data[i].QuerySelectorAll("a");
 
@@ -1585,8 +1574,7 @@ namespace CloudStream2Console
                     string href = (link[0].GetAttributeValue("href", ""));
                     string title = (realName[0].InnerText);
                     int maxEp = (int.Parse(FindHTML(realName[3].InnerText, ":", "Episode(s)")));
-                    list.Add(new AnimeVibeData()
-                    {
+                    list.Add(new AnimeVibeData() {
                         isDub = isDub,
                         href = href,
                         title = title,
@@ -1601,10 +1589,9 @@ namespace CloudStream2Console
                 string url = href + episode;
                 string page = DownloadString(url);
                 string iframe = FindHTML(page, "<iframe src=\"", "\"");
-                if (iframe != "")
-                {
+                if (iframe != "") {
                     string d = DownloadString("https://animevibe.tv" + iframe);
-                    AddEpisodesFromMirrors(tempThread,d,normalEpisode,"HELLO","HELLO");
+                    AddEpisodesFromMirrors(tempThread, d, normalEpisode, "HELLO", "HELLO");
                 }
             }
 
@@ -8513,6 +8500,16 @@ namespace CloudStream2Console
                 && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps);
         }
 
+
+
+        public static string Reverse(string s)
+        {
+            char[] charArray = s.ToCharArray();
+            Array.Reverse(charArray);
+            return new string(charArray);
+        }
+
+
         /// <summary>
         /// RETURNS THE TRUE MX URL OF A MP4 UPLOAD
         /// </summary>
@@ -8525,10 +8522,7 @@ namespace CloudStream2Console
             }
 
             try {
-
-                // int iDex = result.IndexOf("|");
-                // result = result.Substring(iDex, result.Length - iDex);
-
+                 
                 while (result.Contains("||")) {
                     result = result.Replace("||", "|");
                 }
@@ -8544,51 +8538,22 @@ namespace CloudStream2Console
                     if (result.Contains("|www" + i + "|")) {
                         server = "www" + i;
                     }
-                }
-
-                /*
-                int pos = result.IndexOf("vid|mp4|download");
-                int offset = 18;
-
-                if (pos == -1) {
-                    offset = 9;
-                    pos = result.IndexOf("vid|mp4");
-                }
-                if (pos == -1) {
-                    pos = result.IndexOf("mp4|video");
-                    offset = 11;
-                }  
-                if (pos == -1) {
-                    pos = result.IndexOf("getElementById|");
-                    offset = "getElementById".Length+3;
-                }
-
-                if (pos == -1) {
-                    return "";
-
-                    if (_episode.Contains("This video is no longer available due to a copyright claim")) {
-                        break;
-                    }
-
-                }
-
-                string allEp = result.Substring(pos + offset - 1, result.Length - pos - offset + 1);*/
+                } 
                 string r = "-1";
 
-                string urlLink = result.Split('|').OrderBy(t => -t.Length).ToArray()[2];
-                /*print("ALLREP: " + allEp);
-                if ((allEp.Substring(0, 30).Contains("|"))) {
-                    string rez = allEp.Substring(0, allEp.IndexOf("p")) + "p";
-                    r = rez;
-                    allEp = allEp.Substring(allEp.IndexOf("p") + 2, allEp.Length - allEp.IndexOf("p") - 2);
+                print("RESULdsadsadsaTS: " + result);
+                string urlLink = "";
+                try {
+                    urlLink = result.Split('|').OrderBy(t => -t.Length).ToArray()[2];
                 }
-                string urlLink = allEp.Substring(0, allEp.IndexOf("|"));*/
+                catch (Exception) { }
+                if (!urlLink.IsClean() || urlLink.Length > 80 ) {
+                    int _i = result.IndexOf("|282|");
+                    string _result = result.Substring(0, _i);
 
-                //  allEp = allEp.Substring(urlLink.Length + 1, allEp.Length - urlLink.Length - 1);
-                // string typeID = allEp.Substring(0, allEp.IndexOf("|"));
-                //string typeID = FindHTML(result, urlLink, "|");
-                // string _urlLink = FindReverseHTML(result, "|" + typeID + "|", "|");
-                // print(server + "|" + typeID + "|" + urlLink);
+                    urlLink = Reverse(FindHTML("First=" + Reverse(_result), "First=", "|"));
+                    print("DADADD:A:DA:D:A:D " + urlLink);
+                } 
                 string mxLink = "https://" + server + ".mp4upload.com:282/d/" + urlLink + "/video.mp4"; //  282 /d/qoxtvtduz3b4quuorgvegykwirnmt3wm3mrzjwqhae3zsw3fl7ajhcdj/video.mp4
 
                 string addRez = "";
