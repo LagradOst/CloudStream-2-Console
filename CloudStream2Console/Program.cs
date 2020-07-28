@@ -340,7 +340,8 @@ namespace CloudStream2Console
                 }
                 if (currentView == 0) {
                     bool search = false;
-                    if (f == '') { // DELETE
+                    
+                    if (input.Key == ConsoleKey.Delete || input.Key == ConsoleKey.Backspace) { // DELETE
                         search = true;
                         if (currentSearch.Length >= 1) {
                             currentSearch = currentSearch.Substring(0, currentSearch.Length - 1);
